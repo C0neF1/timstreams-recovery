@@ -1,0 +1,37 @@
+name: TimStreams Auto-Recovery
+
+on:
+  # Triggered by Worker health check failure (repository_dispatch)
+  repository_dispatch:
+    types: [recovery]
+  # Manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: recovery
+        run: npm install
+
+      - name: Run recovery
+        working-directory: recovery
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
+        run: node recover.js
+
+      - name: Notify result
+        if: always()
+        run: |
+          echo "Recovery run completed at $(date)"
+          echo "Check Worker health at: https://timstreams.conef.workers.dev/api/health"
